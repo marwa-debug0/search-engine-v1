@@ -10,6 +10,7 @@ add_executable(search_engine_tests
 )
 
 target_link_libraries(search_engine_tests PRIVATE Catch2::Catch2WithMain)
+target_include_directories(search_engine_tests PRIVATE engine/include)
 
 include(CTest)
 include(Catch)
