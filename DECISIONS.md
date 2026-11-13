@@ -1,6 +1,10 @@
-# Design Decisions
+# Tokenizer  
+- Handles Lowercase conversion.
+- Handles Punctuation and whitespace.
+- Handles Numbers and alphanumeric combinations.
+- Handles Email addresses and hyphenated words.
+- Handles Empty and punctuation-only input.
+- Handles Repeated words while preserving term frequency information.
 
-This document records the important architectural and technical decisions made during the development.
 
-## Why C++?
-Widely used language for search engines. 
+# 
