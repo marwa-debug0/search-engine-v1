@@ -13,9 +13,10 @@ The goal is to understand and implement the fundamental components of an informa
 
 ## Technologies
 
-- C++
+- C++17
 - CMake
-- Catch2 (testing framework)
+- Catch2 (testing)
+- Snowball libstemmer (English Porter2 stemming)
 
 ## Project Status
 

@@ -4,6 +4,8 @@
 #include "search_engine/posting_list.hpp"
 #include "search_engine/index.hpp"
 #include "search_engine/tokenizer.hpp"
+#include "search_engine/stemmer.hpp"
+#include "search_engine/text_processor.hpp"
 
 
 
@@ -97,4 +99,27 @@ TEST_CASE("Tokenizer handles punctuation") {
 TEST_CASE("Tokenizer handles repeated words") {
     auto tokens = tokenize("apple banana apple orange banana apple");
     REQUIRE(tokens == std::vector<std::string>{"apple", "banana", "apple", "orange", "banana", "apple"});
+}
+
+
+// Stemmer
+TEST_CASE("Stemmer reduces related English words") {
+    Stemmer stemmer;
+
+    REQUIRE(stemmer.stem("running") == "run");
+    REQUIRE(stemmer.stem("runs") == "run");
+    REQUIRE(stemmer.stem("studies") == "studi");
+    REQUIRE(stemmer.stem("connected") == "connect");
+    REQUIRE(stemmer.stem("connections") == "connect");
+}
+
+TEST_CASE("Text preprocessing tokenizes and stems text") {
+    Stemmer stemmer;
+
+    std::vector<std::string> result =
+        preprocess_text("Running connections and studies", stemmer);
+
+    REQUIRE(result == std::vector<std::string>{
+        "run", "connect", "and", "studi"
+    });
 }
