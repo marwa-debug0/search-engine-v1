@@ -17,10 +17,11 @@ The goal is to understand and implement the fundamental components of an informa
 - CMake
 - Catch2 (testing)
 - Snowball libstemmer (English Porter2 stemming)
+- Snowball English stopword list
 
 ## Project Status
 
-Currently setting up the development environment and project foundations.
+- Stop word removal: implemented and tested, pipeline integration pending
 
 ## Building
 

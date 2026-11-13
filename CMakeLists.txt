@@ -4,7 +4,8 @@ project(search_engine_v0)
 add_executable(search_engine_v0 engine/src/main.cpp
     engine/src/tokenizer.cpp
     engine/src/stemmer.cpp
-    engine/src/text_processor.cpp)
+    engine/src/text_processor.cpp
+    engine/src/stopword_filter.cpp)
 
 
 find_package(Catch2 3 REQUIRED)
@@ -12,7 +13,8 @@ add_executable(search_engine_tests
     tests/test_main.cpp
     engine/src/tokenizer.cpp
     engine/src/stemmer.cpp
-    engine/src/text_processor.cpp)
+    engine/src/text_processor.cpp
+    engine/src/stopword_filter.cpp)
 
 find_path(SNOWBALL_INCLUDE_DIR
     NAME libstemmer.h
@@ -39,4 +41,7 @@ target_link_libraries(search_engine_tests PRIVATE ${SNOWBALL_LIBRARY})
 
 include(CTest)
 include(Catch)
-catch_discover_tests(search_engine_tests)
+catch_discover_tests(
+    search_engine_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)

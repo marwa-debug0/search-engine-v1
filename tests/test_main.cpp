@@ -6,6 +6,7 @@
 #include "search_engine/tokenizer.hpp"
 #include "search_engine/stemmer.hpp"
 #include "search_engine/text_processor.hpp"
+#include "search_engine/stopword_filter.hpp"
 
 
 
@@ -122,4 +123,45 @@ TEST_CASE("Text preprocessing tokenizes and stems text") {
     REQUIRE(result == std::vector<std::string>{
         "run", "connect", "and", "studi"
     });
+}
+
+// Stopword filter
+
+TEST_CASE("Stopword filter removes English stopwords") {
+    StopwordFilter filter("data/stopwords/english.txt");
+
+    std::vector<std::string> tokens = {
+        "the", "cat", "and", "dog", "running"
+    };
+
+    std::vector<std::string> result = filter.filter(tokens);
+
+    REQUIRE(result == std::vector<std::string>{
+        "cat", "dog", "running"
+    });
+}
+
+TEST_CASE("Stopword filter preserves words not in the dataset") {
+    StopwordFilter filter("data/stopwords/english.txt");
+
+    std::vector<std::string> tokens = {
+        "computer", "search", "engine"
+    };
+
+    REQUIRE(filter.filter(tokens) == tokens);
+}
+
+TEST_CASE("Stopword filter handles empty input") {
+    StopwordFilter filter("data/stopwords/english.txt");
+
+    std::vector<std::string> tokens;
+
+    REQUIRE(filter.filter(tokens).empty());
+}
+
+TEST_CASE("Stopword filter throws when dataset is missing") {
+    REQUIRE_THROWS_AS(
+        StopwordFilter("data/stopwords/nonexistent.txt"),
+        std::runtime_error
+    );
 }
