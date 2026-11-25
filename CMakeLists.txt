@@ -10,7 +10,8 @@ add_executable(search_engine_v0 engine/src/main.cpp
     engine/src/stemmer.cpp
     engine/src/text_processor.cpp
     engine/src/stopword_filter.cpp
-    engine/src/inverted_index.cpp)
+    engine/src/inverted_index.cpp
+    engine/src/posting_list_ops.cpp)
 
 
 find_package(Catch2 3 REQUIRED)
@@ -20,7 +21,8 @@ add_executable(search_engine_tests
     engine/src/stemmer.cpp
     engine/src/text_processor.cpp
     engine/src/stopword_filter.cpp
-    engine/src/inverted_index.cpp)
+    engine/src/inverted_index.cpp
+    engine/src/posting_list_ops.cpp)
 
 find_path(SNOWBALL_INCLUDE_DIR
     NAME libstemmer.h

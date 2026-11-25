@@ -39,6 +39,16 @@ the document IDs and term frequencies of documents in which the term appears.
 
 Each document ID can only be indexed once. Duplicate document IDs are rejected.
 
+### Posting List Operations
+
+The engine supports three posting-list operations:
+
+- Intersection: retrieves document IDs present in both lists.
+- Union: combines document IDs from both lists without duplicates.
+- Difference: retrieves document IDs present in the first list but not the second.
+
+These operations use sorted posting lists and two-pointer algorithms.
+
 ## Project Status
 
 ### Milestone 0 — Project Foundations
@@ -56,7 +66,7 @@ Each document ID can only be indexed once. Duplicate document IDs are rejected.
 - [x] T1.3 Stemming
 - [x] T1.4 Configurable stopword filtering and text preprocessing
 - [x] T1.5 Inverted index
-- [ ] T1.6 Posting list operations
+- [x] T1.6 Posting list operations
 - [ ] T1.7 Boolean query parser and executor
 - [ ] T1.8 Ranked retrieval (TF-IDF)
 - [ ] T1.9 Property testing

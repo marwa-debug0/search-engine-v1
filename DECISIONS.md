@@ -47,3 +47,32 @@ An `std::unordered_set<int>` tracks indexed document IDs. Duplicate IDs
 cause `std::invalid_argument` to be thrown.
 
 This prevents duplicate postings and protects the consistency of the index.
+
+
+### Posting List Ordering
+
+Posting lists are maintained in ascending document ID order.
+
+The inverted index uses `std::lower_bound` to find the correct insertion
+position. This invariant allows efficient two-pointer operations such
+as intersection, union, and difference.
+
+### Posting List Operations
+
+Boolean posting-list operations return `std::vector<int>` containing
+document IDs rather than `PostingList` objects.
+
+This separates Boolean retrieval results from term-frequency information,
+which remains associated with individual terms and is needed for ranked retrieval.
+
+The engine implements:
+
+- Intersection (A AND B)
+- Union (A OR B)
+- Difference (A NOT B)
+
+All operations use two-pointer algorithms and assume sorted posting lists
+with unique document IDs.
+
+Their time complexity is O(n + m), where n and m are the sizes of the
+input posting lists.

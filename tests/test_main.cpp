@@ -9,6 +9,7 @@
 #include "search_engine/text_processor.hpp"
 #include "search_engine/stopword_filter.hpp"
 #include "search_engine/inverted_index.hpp"
+#include "search_engine/posting_list_ops.hpp"
 
 
 
@@ -266,4 +267,146 @@ TEST_CASE("InvertedIndex rejects duplicate document IDs") {
 
     REQUIRE(index.count("cat") == 1);
     REQUIRE(index.count("bird") == 0);
+}
+
+TEST_CASE("InvertedIndex keeps postings sorted by document ID") {
+    InvertedIndex inverted_index;
+
+    inverted_index.add_document({5, "Fifth", "cat"});
+    inverted_index.add_document({1, "First", "cat"});
+    inverted_index.add_document({3, "Third", "cat"});
+
+    const PostingList &postings =
+        inverted_index.get_index().at("cat");
+
+    REQUIRE(postings.size() == 3);
+    REQUIRE(postings[0].document_id == 1);
+    REQUIRE(postings[1].document_id == 3);
+    REQUIRE(postings[2].document_id == 5);
+}
+
+// Intersection
+TEST_CASE("Intersection finds common document IDs") {
+    PostingList first = {
+        {1, 2},
+        {3, 1},
+        {5, 4},
+        {8, 2}
+    };
+
+    PostingList second = {
+        {2, 1},
+        {3, 2},
+        {5, 1},
+        {9, 3}
+    };
+
+    REQUIRE(
+        intersect_posting_lists(first, second)
+        == std::vector<int>{3, 5}
+    );
+}
+
+TEST_CASE("Intersection returns empty when there are no matches") {
+    PostingList first = {{1, 1}, {3, 2}};
+    PostingList second = {{2, 1}, {4, 1}};
+
+    REQUIRE(intersect_posting_lists(first, second).empty());
+}
+
+TEST_CASE("Intersection handles empty posting lists") {
+    PostingList first;
+    PostingList second = {{1, 1}, {2, 1}};
+
+    REQUIRE(intersect_posting_lists(first, second).empty());
+}
+
+
+// Union
+TEST_CASE("Union combines document IDs without duplicates") {
+    PostingList first = {
+        {1, 2},
+        {3, 1},
+        {5, 4},
+        {8, 2}
+    };
+
+    PostingList second = {
+        {2, 1},
+        {3, 2},
+        {5, 1},
+        {9, 3}
+    };
+
+    REQUIRE(
+        union_posting_lists(first, second)
+        == std::vector<int>{1, 2, 3, 5, 8, 9}
+    );
+}
+
+TEST_CASE("Union handles disjoint posting lists") {
+    PostingList first = {{1, 1}, {3, 1}};
+    PostingList second = {{2, 1}, {4, 1}};
+
+    REQUIRE(
+        union_posting_lists(first, second)
+        == std::vector<int>{1, 2, 3, 4}
+    );
+}
+
+TEST_CASE("Union handles an empty posting list") {
+    PostingList first;
+    PostingList second = {{1, 1}, {3, 2}};
+
+    REQUIRE(
+        union_posting_lists(first, second)
+        == std::vector<int>{1, 3}
+    );
+}
+
+
+// Difference
+TEST_CASE("Difference excludes IDs present in the second list") {
+    PostingList first = {
+        {1, 2},
+        {3, 1},
+        {5, 4},
+        {8, 2}
+    };
+
+    PostingList second = {
+        {2, 1},
+        {3, 2},
+        {5, 1},
+        {9, 3}
+    };
+
+    REQUIRE(
+        difference_posting_lists(first, second)
+        == std::vector<int>{1, 8}
+    );
+}
+
+TEST_CASE("Difference returns all IDs when lists are disjoint") {
+    PostingList first = {{1, 1}, {3, 1}};
+    PostingList second = {{2, 1}, {4, 1}};
+
+    REQUIRE(
+        difference_posting_lists(first, second)
+        == std::vector<int>{1, 3}
+    );
+}
+
+TEST_CASE("Difference returns empty when the first list is empty") {
+    PostingList first;
+    PostingList second = {{1, 1}, {2, 1}};
+
+    REQUIRE(difference_posting_lists(first, second).empty());
+}
+
+TEST_CASE("Difference returns empty when both lists are identical") {
+    PostingList first = {{1, 1}, {3, 2}};
+    PostingList second = {{1, 4}, {3, 1}};
+
+    REQUIRE(difference_posting_lists(first, second).empty());
 }
