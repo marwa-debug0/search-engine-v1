@@ -33,6 +33,12 @@ Processing order:
 
 Stopword filtering can be enabled or disabled through `PreprocessingConfig`, and the stopword dataset can be selected using a file path.
 
+
+The inverted index maps each processed term to a posting list containing
+the document IDs and term frequencies of documents in which the term appears.
+
+Each document ID can only be indexed once. Duplicate document IDs are rejected.
+
 ## Project Status
 
 ### Milestone 0 — Project Foundations
@@ -49,7 +55,7 @@ Stopword filtering can be enabled or disabled through `PreprocessingConfig`, and
 - [x] T1.2 Tokenizer
 - [x] T1.3 Stemming
 - [x] T1.4 Configurable stopword filtering and text preprocessing
-- [ ] T1.5 Inverted index
+- [x] T1.5 Inverted index
 - [ ] T1.6 Posting list operations
 - [ ] T1.7 Boolean query parser and executor
 - [ ] T1.8 Ranked retrieval (TF-IDF)

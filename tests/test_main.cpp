@@ -8,6 +8,7 @@
 #include "search_engine/stemmer.hpp"
 #include "search_engine/text_processor.hpp"
 #include "search_engine/stopword_filter.hpp"
+#include "search_engine/inverted_index.hpp"
 
 
 
@@ -190,4 +191,79 @@ TEST_CASE("Stopword filter throws when dataset is missing") {
         StopwordFilter("data/stopwords/nonexistent.txt"),
         std::runtime_error
     );
+}
+
+// Inverted index
+TEST_CASE("InvertedIndex indexes terms and counts their frequencies") {
+    InvertedIndex inverted_index;
+
+    Document document{
+        1,
+        "Animals",
+        "cat dog cat cat"
+    };
+
+    inverted_index.add_document(document);
+
+    const Index &index = inverted_index.get_index();
+
+    REQUIRE(index.size() == 2);
+
+    REQUIRE(index.at("cat").size() == 1);
+    REQUIRE(index.at("cat")[0].document_id == 1);
+    REQUIRE(index.at("cat")[0].term_frequency == 3);
+
+    REQUIRE(index.at("dog").size() == 1);
+    REQUIRE(index.at("dog")[0].document_id == 1);
+    REQUIRE(index.at("dog")[0].term_frequency == 1);
+}
+
+TEST_CASE("InvertedIndex stores postings across multiple documents") {
+    InvertedIndex inverted_index;
+
+    Document first{
+        1,
+        "First",
+        "cat dog cat"
+    };
+
+    Document second{
+        2,
+        "Second",
+        "dog bird"
+    };
+
+    inverted_index.add_document(first);
+    inverted_index.add_document(second);
+
+    const Index &index = inverted_index.get_index();
+
+    REQUIRE(index.at("cat").size() == 1);
+    REQUIRE(index.at("dog").size() == 2);
+    REQUIRE(index.at("bird").size() == 1);
+
+    REQUIRE(index.at("dog")[0].document_id == 1);
+    REQUIRE(index.at("dog")[0].term_frequency == 1);
+
+    REQUIRE(index.at("dog")[1].document_id == 2);
+    REQUIRE(index.at("dog")[1].term_frequency == 1);
+}
+
+TEST_CASE("InvertedIndex rejects duplicate document IDs") {
+    InvertedIndex inverted_index;
+
+    Document first{1, "First", "cat dog"};
+    Document duplicate{1, "Second", "bird fish"};
+
+    inverted_index.add_document(first);
+
+    REQUIRE_THROWS_AS(
+        inverted_index.add_document(duplicate),
+        std::invalid_argument
+    );
+
+    const Index &index = inverted_index.get_index();
+
+    REQUIRE(index.count("cat") == 1);
+    REQUIRE(index.count("bird") == 0);
 }
