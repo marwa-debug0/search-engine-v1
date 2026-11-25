@@ -1,24 +1,27 @@
-### Tokenizer  
-- Handles Lowercase conversion.
-- Handles Punctuation and whitespace.
-- Handles Numbers and alphanumeric combinations.
-- Handles Email addresses and hyphenated words.
-- Handles Empty and punctuation-only input.
-- Handles Repeated words while preserving term frequency information.
 
+### Text Processing Architecture
 
-### Stemming Library
+The project uses a reusable `TextProcessor` class to coordinate text preprocessing.
 
-The project uses **Snowball's libstemmer** library for English stemming, specifically the English algorithm (Porter2). We chose this established implementation over writing a stemmer from scratch to benefit from a tested, maintained algorithm while keeping control over our indexing and retrieval architecture. The library is integrated into the C++ project through a small wrapper.
+The processing pipeline follows this order:
 
+1. Tokenization
+2. Optional stopword filtering
+3. Stemming
 
+The processor owns and reuses its `Stemmer` and optional `StopwordFilter` instances rather than reconstructing them for every document or query. This avoids unnecessary initialization and keeps preprocessing behavior consistent.
 
-### Connecting tokenization and stemming : 
-We will connect tokenizer and stemmer using a pipeline (text_processor.cpp), so when we feed a query to the search engine , it will first go through the tokenizer and then the stemmer.
+### Configurable Stopword Handling
 
+The project uses the Snowball English stopword list as an external linguistic resource. The list is stored locally and loaded by our own C++ implementation rather than relying on an additional NLP library.
 
-### Stop word handling : 
-We will use an externally maintained stopword dataset. It will be stored locally in a txt file loaded into the search engine at runtime.
-Stopword filtering will be implemented and can be configured so that search quality can be evaluated with and without it. The dataset's source and license will be documented in the data/stopwords/README.md.
+Stopword filtering is configurable through `PreprocessingConfig`:
 
-We will update our pipeline to: Text → Tokenization → Stopword filtering → Stemming
+- `remove_stopwords` controls whether filtering is enabled.
+- `stopwords_file` specifies the stopword dataset to load.
+
+The `StopwordFilter` stores loaded stopwords in an `std::unordered_set` for efficient membership checks.
+
+We chose this approach to keep the preprocessing implementation under our control while avoiding manually maintaining a stopword collection. Configurability also allows us to evaluate retrieval quality with and without stopword removal.
+
+The original dataset source and licensing information are retained alongside the dataset in `data/stopwords/`.

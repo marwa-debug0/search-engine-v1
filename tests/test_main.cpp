@@ -1,4 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
+#include <stdexcept>
 
 #include "search_engine/document.hpp"
 #include "search_engine/posting_list.hpp"
@@ -7,6 +8,7 @@
 #include "search_engine/stemmer.hpp"
 #include "search_engine/text_processor.hpp"
 #include "search_engine/stopword_filter.hpp"
+
 
 
 
@@ -114,15 +116,39 @@ TEST_CASE("Stemmer reduces related English words") {
     REQUIRE(stemmer.stem("connections") == "connect");
 }
 
-TEST_CASE("Text preprocessing tokenizes and stems text") {
-    Stemmer stemmer;
+
+// Processor
+TEST_CASE("Text preprocessing tokenizes, removes stopwords and stems") {
+    TextProcessor processor;
+
+    std::vector<std::string> result = processor.process("Running connections and studies");
+
+    REQUIRE(result == std::vector<std::string>{"run", "connect","studi"});
+}
+
+TEST_CASE("Text processor can disable stopword removal") {
+    PreprocessingConfig config;
+    config.remove_stopwords = false;
+
+    TextProcessor processor(config);
 
     std::vector<std::string> result =
-        preprocess_text("Running connections and studies", stemmer);
+        processor.process("Running connections and studies");
 
     REQUIRE(result == std::vector<std::string>{
-        "run", "connect", "and", "studi"
-    });
+        "run", "connect", "and", "studi"});
+}
+
+TEST_CASE("TextProcessor can use a custom stopword file") {
+    PreprocessingConfig config;
+    config.stopwords_file = "tests/fixtures/custom_stopwords.txt";
+
+    TextProcessor processor(config);
+
+    std::vector<std::string> result =
+        processor.process("computer running");
+
+    REQUIRE(result == std::vector<std::string>{"run"});
 }
 
 // Stopword filter

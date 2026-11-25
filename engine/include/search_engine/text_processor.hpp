@@ -1,12 +1,27 @@
+
 #pragma once
 
 #include <string>
 #include <vector>
+#include <optional>
 
 #include "../search_engine/stemmer.hpp"
+#include "../search_engine/stopword_filter.hpp"
 
-std::vector<std::string> preprocess_text(
-    const std::string& text,
-    Stemmer &stemmer
-);
-// We don't want to recreate the stemmer everytime so we pass it as a parameter.
+struct PreprocessingConfig {
+    bool remove_stopwords = true;
+    std::string stopwords_file = "data/stopwords/english.txt";
+};
+
+class TextProcessor {
+public:
+    explicit TextProcessor(
+        const PreprocessingConfig &config = {}
+    );
+
+    std::vector<std::string> process(const std::string &text);
+
+private:
+    Stemmer stemmer_;
+    std::optional<StopwordFilter> stopword_filter_;
+};

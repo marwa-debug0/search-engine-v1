@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.10)
 project(search_engine_v0)
 
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 add_executable(search_engine_v0 engine/src/main.cpp
     engine/src/tokenizer.cpp
     engine/src/stemmer.cpp
