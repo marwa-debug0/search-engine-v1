@@ -1,4 +1,3 @@
-
 # Search Engine V0
 
 ## Overview
@@ -23,6 +22,8 @@ The goal is to understand and implement the fundamental components of an informa
 
 ## Architecture
 
+### Text Processing
+
 The text preprocessing pipeline is implemented through a reusable `TextProcessor` class.
 
 Processing order:
@@ -33,55 +34,52 @@ Processing order:
 
 Stopword filtering can be enabled or disabled through `PreprocessingConfig`, and the stopword dataset can be selected using a file path.
 
+The same preprocessing pipeline is used for document indexing and query-term lookup to ensure consistent term representation.
 
-The inverted index maps each processed term to a posting list containing
-the document IDs and term frequencies of documents in which the term appears.
+### Inverted Index
+
+The inverted index maps each processed term to a posting list containing the document IDs and term frequencies of documents in which the term appears.
 
 Each document ID can only be indexed once. Duplicate document IDs are rejected.
 
+The index also provides access to all indexed document IDs, which is necessary for evaluating `NOT` queries.
+
 ### Posting List Operations
 
-The engine supports three posting-list operations:
+The engine supports three Boolean operations on sorted document ID vectors:
 
 - Intersection: retrieves document IDs present in both lists.
 - Union: combines document IDs from both lists without duplicates.
 - Difference: retrieves document IDs present in the first list but not the second.
 
-These operations use sorted posting lists and two-pointer algorithms.
+These operations use two-pointer algorithms with O(n + m) time complexity.
 
-## Project Status
+### Boolean Query Processing
 
-### Milestone 0 — Project Foundations
-- Python prototype
-- C++ project setup
-- CMake build system
-- Catch2 testing
-- Docker-based build environment
-- GitHub Actions CI
+The engine supports Boolean queries using:
 
-### Milestone 1 — Core Search Engine
+- `AND`
+- `OR`
+- `NOT`
+- Parentheses for explicit grouping
 
-- [x] T1.1 Core data structures
-- [x] T1.2 Tokenizer
-- [x] T1.3 Stemming
-- [x] T1.4 Configurable stopword filtering and text preprocessing
-- [x] T1.5 Inverted index
-- [x] T1.6 Posting list operations
-- [ ] T1.7 Boolean query parser and executor
-- [ ] T1.8 Ranked retrieval (TF-IDF)
-- [ ] T1.9 Property testing
-- [ ] T1.10 JSONL loader and CLI
-- [ ] T1.11 Profiling
+Operators are case-insensitive reserved keywords.
 
-## Building
+Operator precedence:
 
-```bash
-cmake -S . -B build
-cmake --build build
-```
+1. `NOT`
+2. `AND`
+3. `OR`
 
-## Running Tests
+A recursive-descent parser converts queries into an Abstract Syntax Tree (AST). A separate Boolean query executor evaluates the AST against the inverted index.
 
-```bash
-ctest --test-dir build --output-on-failure
-```
+`NOT` retrieves the complement of a result set relative to all indexed document IDs.
+
+The complete query pipeline is:
+
+1. Query tokenization
+2. AST construction through parsing
+3. Recursive Boolean expression evaluation
+4. Return of matching document IDs
+
+The query engine exposes `execute_boolean_query

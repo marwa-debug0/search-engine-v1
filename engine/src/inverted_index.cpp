@@ -41,3 +41,41 @@ void InvertedIndex::add_document(const Document &document) {
 const Index &InvertedIndex::get_index() const {
     return index_;
 }
+
+// We need the id getter for the NOT query that needs to access all documents
+std::vector<int> InvertedIndex::get_all_document_ids() const {
+    std::vector<int> ids(
+        document_ids_.begin(),
+        document_ids_.end()
+    );
+
+    std::sort(ids.begin(), ids.end());
+
+    return ids;
+}
+
+std::vector<int> InvertedIndex::get_document_ids_for_term(
+    const std::string &term
+) {
+    std::vector<std::string> processed_terms = text_processor_.process(term);
+
+    if (processed_terms.empty()) {
+        return {};
+    }
+
+    const std::string &processed_term = processed_terms.front();
+
+    auto it = index_.find(processed_term);
+
+    if (it == index_.end()) {
+        return {};
+    }
+
+    std::vector<int> document_ids;
+
+    for (const Posting &posting : it->second) {
+        document_ids.push_back(posting.document_id);
+    }
+
+    return document_ids;
+}

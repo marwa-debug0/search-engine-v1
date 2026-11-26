@@ -10,6 +10,11 @@
 #include "search_engine/stopword_filter.hpp"
 #include "search_engine/inverted_index.hpp"
 #include "search_engine/posting_list_ops.hpp"
+#include "search_engine/query_tokenizer.hpp"
+#include "search_engine/query_parser.hpp"
+#include "search_engine/query_tokenizer.hpp"
+#include "search_engine/boolean_query_executor.hpp"
+#include "search_engine/query_engine.hpp"
 
 
 
@@ -285,128 +290,426 @@ TEST_CASE("InvertedIndex keeps postings sorted by document ID") {
     REQUIRE(postings[2].document_id == 5);
 }
 
-// Intersection
-TEST_CASE("Intersection finds common document IDs") {
-    PostingList first = {
-        {1, 2},
-        {3, 1},
-        {5, 4},
-        {8, 2}
-    };
+TEST_CASE("Find document IDs for an existing term") {
+    InvertedIndex index;
 
-    PostingList second = {
-        {2, 1},
-        {3, 2},
-        {5, 1},
-        {9, 3}
-    };
+    index.add_document({1, "First", "running quickly"});
+    index.add_document({2, "Second", "running slowly"});
+    index.add_document({3, "Third", "jumping high"});
 
     REQUIRE(
-        intersect_posting_lists(first, second)
-        == std::vector<int>{3, 5}
+        index.get_document_ids_for_term("running")
+        == std::vector<int>{1, 2}
     );
 }
 
-TEST_CASE("Intersection returns empty when there are no matches") {
-    PostingList first = {{1, 1}, {3, 2}};
-    PostingList second = {{2, 1}, {4, 1}};
+TEST_CASE("Unknown term returns empty results") {
+    InvertedIndex index;
 
-    REQUIRE(intersect_posting_lists(first, second).empty());
-}
-
-TEST_CASE("Intersection handles empty posting lists") {
-    PostingList first;
-    PostingList second = {{1, 1}, {2, 1}};
-
-    REQUIRE(intersect_posting_lists(first, second).empty());
-}
-
-
-// Union
-TEST_CASE("Union combines document IDs without duplicates") {
-    PostingList first = {
-        {1, 2},
-        {3, 1},
-        {5, 4},
-        {8, 2}
-    };
-
-    PostingList second = {
-        {2, 1},
-        {3, 2},
-        {5, 1},
-        {9, 3}
-    };
+    index.add_document({1, "First", "computer science"});
 
     REQUIRE(
-        union_posting_lists(first, second)
-        == std::vector<int>{1, 2, 3, 5, 8, 9}
+        index.get_document_ids_for_term("spaceship").empty()
     );
 }
 
-TEST_CASE("Union handles disjoint posting lists") {
-    PostingList first = {{1, 1}, {3, 1}};
-    PostingList second = {{2, 1}, {4, 1}};
+TEST_CASE("Stopword returns empty results") {
+    InvertedIndex index;
+
+    index.add_document({1, "First", "the computer is useful"});
 
     REQUIRE(
-        union_posting_lists(first, second)
+        index.get_document_ids_for_term("the").empty()
+    );
+}
+
+
+
+
+// Query tokenizer
+TEST_CASE("QueryTokenizer recognizes terms and AND") {
+    auto tokens = tokenize_query("computer AND science");
+
+    REQUIRE(tokens.size() == 3);
+
+    REQUIRE(tokens[0].type == QueryTokenType::Term);
+    REQUIRE(tokens[0].value == "computer");
+
+    REQUIRE(tokens[1].type == QueryTokenType::And);
+
+    REQUIRE(tokens[2].type == QueryTokenType::Term);
+    REQUIRE(tokens[2].value == "science");
+}
+
+TEST_CASE("QueryTokenizer recognizes OR") {
+    auto tokens = tokenize_query("music OR art");
+
+    REQUIRE(tokens.size() == 3);
+
+    REQUIRE(tokens[0].type == QueryTokenType::Term);
+    REQUIRE(tokens[0].value == "music");
+
+    REQUIRE(tokens[1].type == QueryTokenType::Or);
+
+    REQUIRE(tokens[2].type == QueryTokenType::Term);
+    REQUIRE(tokens[2].value == "art");
+}
+
+TEST_CASE("QueryTokenizer recognizes NOT") {
+    auto tokens = tokenize_query("NOT python");
+
+    REQUIRE(tokens.size() == 2);
+
+    REQUIRE(tokens[0].type == QueryTokenType::Not);
+
+    REQUIRE(tokens[1].type == QueryTokenType::Term);
+    REQUIRE(tokens[1].value == "python");
+}
+
+TEST_CASE("QueryTokenizer recognizes parentheses") {
+    auto tokens = tokenize_query("(computer OR music)");
+
+    REQUIRE(tokens.size() == 5);
+
+    REQUIRE(tokens[0].type == QueryTokenType::LeftParen);
+
+    REQUIRE(tokens[1].type == QueryTokenType::Term);
+    REQUIRE(tokens[1].value == "computer");
+
+    REQUIRE(tokens[2].type == QueryTokenType::Or);
+
+    REQUIRE(tokens[3].type == QueryTokenType::Term);
+    REQUIRE(tokens[3].value == "music");
+
+    REQUIRE(tokens[4].type == QueryTokenType::RightParen);
+}
+
+TEST_CASE("QueryTokenizer handles uppercase and lowercase operators") {
+    auto tokens = tokenize_query("COMPUTER and SCIENCE");
+
+    REQUIRE(tokens.size() == 3);
+
+    REQUIRE(tokens[0].type == QueryTokenType::Term);
+    REQUIRE(tokens[0].value == "computer");
+
+    REQUIRE(tokens[1].type == QueryTokenType::And);
+
+    REQUIRE(tokens[2].type == QueryTokenType::Term);
+    REQUIRE(tokens[2].value == "science");
+}
+
+TEST_CASE("QueryTokenizer handles an empty query") {
+    auto tokens = tokenize_query("");
+
+    REQUIRE(tokens.empty());
+}
+
+TEST_CASE("QueryTokenizer handles whitespace") {
+    auto tokens = tokenize_query("   computer    AND    science   ");
+
+    REQUIRE(tokens.size() == 3);
+
+    REQUIRE(tokens[0].value == "computer");
+    REQUIRE(tokens[1].type == QueryTokenType::And);
+    REQUIRE(tokens[2].value == "science");
+}
+
+// Parser
+TEST_CASE("QueryParser parses a single term") {
+    auto tokens = tokenize_query("computer");
+    QueryParser parser(tokens);
+
+    auto ast = parser.parse();
+
+    REQUIRE(ast != nullptr);
+    REQUIRE(ast->type == QueryNodeType::Term);
+    REQUIRE(ast->value == "computer");
+    REQUIRE(ast->left == nullptr);
+    REQUIRE(ast->right == nullptr);
+}
+
+TEST_CASE("QueryParser parses an AND expression") {
+    auto tokens = tokenize_query("computer AND science");
+    QueryParser parser(tokens);
+
+    auto ast = parser.parse();
+
+    REQUIRE(ast != nullptr);
+    REQUIRE(ast->type == QueryNodeType::And);
+
+    REQUIRE(ast->left != nullptr);
+    REQUIRE(ast->left->type == QueryNodeType::Term);
+    REQUIRE(ast->left->value == "computer");
+
+    REQUIRE(ast->right != nullptr);
+    REQUIRE(ast->right->type == QueryNodeType::Term);
+    REQUIRE(ast->right->value == "science");
+}
+
+TEST_CASE("QueryParser parses an OR expression") {
+    auto tokens = tokenize_query("computer OR music");
+    QueryParser parser(tokens);
+
+    auto ast = parser.parse();
+
+    REQUIRE(ast != nullptr);
+    REQUIRE(ast->type == QueryNodeType::Or);
+
+    REQUIRE(ast->left->value == "computer");
+    REQUIRE(ast->right->value == "music");
+}
+
+TEST_CASE("QueryParser respects AND precedence over OR") {
+    auto tokens = tokenize_query("computer OR music AND science");
+    QueryParser parser(tokens);
+
+    auto ast = parser.parse();
+
+    REQUIRE(ast->type == QueryNodeType::Or);
+
+    // Left side: computer
+    REQUIRE(ast->left->type == QueryNodeType::Term);
+    REQUIRE(ast->left->value == "computer");
+
+    // Right side: music AND science
+    REQUIRE(ast->right->type == QueryNodeType::And);
+    REQUIRE(ast->right->left->value == "music");
+    REQUIRE(ast->right->right->value == "science");
+}
+
+TEST_CASE("QueryParser parses NOT expressions") {
+    auto tokens = tokenize_query("NOT computer");
+    QueryParser parser(tokens);
+
+    auto ast = parser.parse();
+
+    REQUIRE(ast->type == QueryNodeType::Not);
+    REQUIRE(ast->left != nullptr);
+    REQUIRE(ast->left->type == QueryNodeType::Term);
+    REQUIRE(ast->left->value == "computer");
+}
+
+TEST_CASE("QueryParser parses expressions inside parentheses") {
+    auto tokens = tokenize_query("(computer OR music) AND science");
+    QueryParser parser(tokens);
+
+    auto ast = parser.parse();
+
+    REQUIRE(ast->type == QueryNodeType::And);
+
+    REQUIRE(ast->left->type == QueryNodeType::Or);
+    REQUIRE(ast->left->left->value == "computer");
+    REQUIRE(ast->left->right->value == "music");
+
+    REQUIRE(ast->right->type == QueryNodeType::Term);
+    REQUIRE(ast->right->value == "science");
+}
+
+TEST_CASE("QueryParser rejects an empty query") {
+    std::vector<QueryToken> tokens;
+    QueryParser parser(tokens);
+
+    REQUIRE_THROWS_AS(parser.parse(), std::runtime_error);
+}
+
+TEST_CASE("QueryParser rejects an incomplete AND expression") {
+    auto tokens = tokenize_query("computer AND");
+    QueryParser parser(tokens);
+
+    REQUIRE_THROWS_AS(parser.parse(), std::runtime_error);
+}
+
+TEST_CASE("QueryParser rejects unmatched parentheses") {
+    auto tokens = tokenize_query("(computer OR music");
+    QueryParser parser(tokens);
+
+    REQUIRE_THROWS_AS(parser.parse(), std::runtime_error);
+}
+
+TEST_CASE("QueryParser rejects consecutive operators") {
+    auto tokens = tokenize_query("computer OR OR music");
+    QueryParser parser(tokens);
+
+    REQUIRE_THROWS_AS(parser.parse(), std::runtime_error);
+}
+
+TEST_CASE("QueryParser rejects adjacent terms without an operator") {
+    auto tokens = tokenize_query("computer science");
+    QueryParser parser(tokens);
+
+    REQUIRE_THROWS_AS(parser.parse(), std::runtime_error);
+}
+
+TEST_CASE("QueryParser rejects empty parentheses") {
+    auto tokens = tokenize_query("()");
+    QueryParser parser(tokens);
+
+    REQUIRE_THROWS_AS(parser.parse(), std::runtime_error);
+}
+
+TEST_CASE("QueryParser rejects NOT without an operand") {
+    auto tokens = tokenize_query("NOT");
+    QueryParser parser(tokens);
+
+    REQUIRE_THROWS_AS(parser.parse(), std::runtime_error);
+}
+
+// Executor
+TEST_CASE("Boolean executor evaluates a term") {
+    InvertedIndex index;
+
+    index.add_document({1, "First", "computer science"});
+    index.add_document({2, "Second", "music theory"});
+    index.add_document({3, "Third", "computer programming"});
+
+    BooleanQueryExecutor executor(index);
+
+    QueryNode term;
+    term.type = QueryNodeType::Term;
+    term.value = "computer";
+
+    REQUIRE(executor.execute(term) == std::vector<int>{1, 3});
+}
+
+TEST_CASE("Boolean executor evaluates AND") {
+    InvertedIndex index;
+
+    index.add_document({1, "First", "computer science"});
+    index.add_document({2, "Second", "computer music"});
+    index.add_document({3, "Third", "music theory"});
+    index.add_document({4, "Fourth", "computer science programming"});
+
+    BooleanQueryExecutor executor(index);
+
+    QueryNode left;
+    left.type = QueryNodeType::Term;
+    left.value = "computer";
+
+    QueryNode right;
+    right.type = QueryNodeType::Term;
+    right.value = "science";
+
+    QueryNode root;
+    root.type = QueryNodeType::And;
+    root.left = std::make_unique<QueryNode>(std::move(left));
+    root.right = std::make_unique<QueryNode>(std::move(right));
+
+    REQUIRE(executor.execute(root) == std::vector<int>{1, 4});
+}
+TEST_CASE("Boolean executor evaluates OR") {
+    InvertedIndex index;
+
+    index.add_document({1, "First", "computer science"});
+    index.add_document({2, "Second", "computer music"});
+    index.add_document({3, "Third", "music theory"});
+    index.add_document({4, "Fourth", "science programming"});
+
+    BooleanQueryExecutor executor(index);
+
+    QueryNode left;
+    left.type = QueryNodeType::Term;
+    left.value = "computer";
+
+    QueryNode right;
+    right.type = QueryNodeType::Term;
+    right.value = "science";
+
+    QueryNode root;
+    root.type = QueryNodeType::Or;
+    root.left = std::make_unique<QueryNode>(std::move(left));
+    root.right = std::make_unique<QueryNode>(std::move(right));
+
+    REQUIRE(executor.execute(root) == std::vector<int>{1, 2, 4});
+}
+
+TEST_CASE("Boolean executor evaluates NOT") {
+    InvertedIndex index;
+
+    index.add_document({1, "First", "computer science"});
+    index.add_document({2, "Second", "music theory"});
+    index.add_document({3, "Third", "computer programming"});
+    index.add_document({4, "Fourth", "art history"});
+
+    BooleanQueryExecutor executor(index);
+
+    QueryNode term;
+    term.type = QueryNodeType::Term;
+    term.value = "computer";
+
+    QueryNode root;
+    root.type = QueryNodeType::Not;
+    root.left = std::make_unique<QueryNode>(std::move(term));
+
+    REQUIRE(executor.execute(root) == std::vector<int>{2, 4});
+}
+
+TEST_CASE("Boolean executor evaluates nested expressions") {
+    InvertedIndex index;
+
+    index.add_document({1, "First", "computer science"});
+    index.add_document({2, "Second", "computer music"});
+    index.add_document({3, "Third", "music theory"});
+    index.add_document({4, "Fourth", "science programming"});
+
+    BooleanQueryExecutor executor(index);
+
+    QueryNode computer;
+    computer.type = QueryNodeType::Term;
+    computer.value = "computer";
+
+    QueryNode music;
+    music.type = QueryNodeType::Term;
+    music.value = "music";
+
+    QueryNode not_music;
+    not_music.type = QueryNodeType::Not;
+    not_music.left = std::make_unique<QueryNode>(std::move(music));
+
+    QueryNode root;
+    root.type = QueryNodeType::And;
+    root.left = std::make_unique<QueryNode>(std::move(computer));
+    root.right = std::make_unique<QueryNode>(std::move(not_music));
+
+    REQUIRE(executor.execute(root) == std::vector<int>{1});
+}
+
+// Query engine
+TEST_CASE("Query engine executes a complete Boolean query") {
+    InvertedIndex index;
+
+    index.add_document({1, "First", "computer science"});
+    index.add_document({2, "Second", "computer music"});
+    index.add_document({3, "Third", "music theory"});
+    index.add_document({4, "Fourth", "science programming"});
+
+    REQUIRE(
+        execute_boolean_query("computer AND NOT music", index)
+        == std::vector<int>{1}
+    );
+}
+TEST_CASE("Query engine respects operator precedence") {
+    InvertedIndex index;
+
+    index.add_document({1, "First", "computer science"});
+    index.add_document({2, "Second", "computer music"});
+    index.add_document({3, "Third", "music theory"});
+    index.add_document({4, "Fourth", "science programming"});
+
+    REQUIRE(
+        execute_boolean_query("computer OR music AND science", index)
         == std::vector<int>{1, 2, 3, 4}
     );
 }
+TEST_CASE("Query engine respects parentheses") {
+    InvertedIndex index;
 
-TEST_CASE("Union handles an empty posting list") {
-    PostingList first;
-    PostingList second = {{1, 1}, {3, 2}};
-
-    REQUIRE(
-        union_posting_lists(first, second)
-        == std::vector<int>{1, 3}
-    );
-}
-
-
-// Difference
-TEST_CASE("Difference excludes IDs present in the second list") {
-    PostingList first = {
-        {1, 2},
-        {3, 1},
-        {5, 4},
-        {8, 2}
-    };
-
-    PostingList second = {
-        {2, 1},
-        {3, 2},
-        {5, 1},
-        {9, 3}
-    };
+    index.add_document({1, "First", "computer science"});
+    index.add_document({2, "Second", "computer music"});
+    index.add_document({3, "Third", "music theory"});
+    index.add_document({4, "Fourth", "science programming"});
 
     REQUIRE(
-        difference_posting_lists(first, second)
-        == std::vector<int>{1, 8}
+        execute_boolean_query("(computer OR music) AND science", index)
+        == std::vector<int>{1}
     );
-}
-
-TEST_CASE("Difference returns all IDs when lists are disjoint") {
-    PostingList first = {{1, 1}, {3, 1}};
-    PostingList second = {{2, 1}, {4, 1}};
-
-    REQUIRE(
-        difference_posting_lists(first, second)
-        == std::vector<int>{1, 3}
-    );
-}
-
-TEST_CASE("Difference returns empty when the first list is empty") {
-    PostingList first;
-    PostingList second = {{1, 1}, {2, 1}};
-
-    REQUIRE(difference_posting_lists(first, second).empty());
-}
-
-TEST_CASE("Difference returns empty when both lists are identical") {
-    PostingList first = {{1, 1}, {3, 2}};
-    PostingList second = {{1, 4}, {3, 1}};
-
-    REQUIRE(difference_posting_lists(first, second).empty());
 }

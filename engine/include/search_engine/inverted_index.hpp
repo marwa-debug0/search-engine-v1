@@ -5,6 +5,7 @@
 #include "../search_engine/index.hpp"
 
 #include <unordered_set>
+#include <vector>
 
 class InvertedIndex {
 public:
@@ -15,6 +16,9 @@ public:
     void add_document(const Document &document);
 
     const Index &get_index() const;
+
+    std::vector<int> get_all_document_ids() const;
+    std::vector<int> get_document_ids_for_term(const std::string &term);
 
 private:
     TextProcessor text_processor_;

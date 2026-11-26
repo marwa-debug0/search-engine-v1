@@ -76,3 +76,137 @@ with unique document IDs.
 
 Their time complexity is O(n + m), where n and m are the sizes of the
 input posting lists.
+
+
+### Boolean Query Language
+
+The search engine supports Boolean queries using `AND`, `OR`, and `NOT`, as well as parentheses for explicit grouping.
+
+These operators are case-insensitive reserved keywords. Consequently, the literal words `and`, `or`, and `not` cannot currently be searched as ordinary terms.
+
+Parentheses allow users to override the default operator precedence.
+
+The precedence rules are:
+
+1. `NOT`
+2. `AND`
+3. `OR`
+
+This follows conventional Boolean expression evaluation and makes query interpretation predictable.
+
+### Query Tokenization
+
+A dedicated query tokenizer converts raw query strings into typed tokens.
+
+The tokenizer recognizes:
+
+- Ordinary search terms
+- `AND`
+- `OR`
+- `NOT`
+- Left parentheses
+- Right parentheses
+
+Operators are recognized regardless of capitalization.
+
+Parentheses are treated as structural tokens rather than ordinary punctuation.
+
+### Recursive-Descent Query Parser
+
+A recursive-descent parser converts query tokens into an Abstract Syntax Tree (AST).
+
+The grammar is structured around three levels of precedence:
+
+- OR expressions
+- AND expressions
+- Unary expressions, including NOT
+- Primary expressions, including terms and parenthesized expressions
+
+This structure enforces the precedence rules without requiring a separate operator-precedence algorithm.
+
+The parser is responsible only for syntax analysis and AST construction. Query execution is handled separately.
+
+### AST Ownership and Representation
+
+The AST uses a `QueryNode` structure with four node types:
+
+- Term
+- AND
+- OR
+- NOT
+
+Child nodes are owned through `std::unique_ptr`.
+
+AND and OR nodes contain left and right children. NOT nodes contain one left child. Term nodes contain a search-term value.
+
+Exclusive ownership through `std::unique_ptr` provides automatic memory management and represents the tree structure clearly.
+
+### Boolean Query Execution
+
+A dedicated `BooleanQueryExecutor` evaluates AST nodes recursively.
+
+Each node type maps to an operation:
+
+- Term: retrieves matching document IDs from the inverted index.
+- AND: intersects the results of its two children.
+- OR: unions the results of its two children.
+- NOT: calculates the difference between all indexed document IDs and the results of its child.
+
+The executor reuses the existing document ID operations rather than implementing separate Boolean algorithms.
+
+### Document Universe and NOT Semantics
+
+The `NOT` operator requires a defined universe of documents.
+
+The engine defines this universe as all document IDs currently present in the inverted index.
+
+Therefore:
+
+`NOT A` = `All indexed documents - A`
+
+The inverted index exposes `get_all_document_ids()` to provide this universe in ascending order.
+
+This makes complement operations deterministic and compatible with the sorted two-pointer difference algorithm.
+
+### Consistent Query Preprocessing
+
+Query terms must undergo the same preprocessing as document content.
+
+The inverted index exposes `get_document_ids_for_term()`, which uses its existing `TextProcessor` to tokenize, optionally filter stopwords, and stem query terms before lookup.
+
+This avoids inconsistencies between indexed terms and query terms.
+
+The executor delegates term lookup to the inverted index rather than duplicating preprocessing logic.
+
+### Boolean Operations on Document IDs
+
+Boolean operations accept and return `std::vector<int>` rather than `PostingList`.
+
+Posting lists contain term-frequency information associated with individual terms, while Boolean operations only need document IDs.
+
+Separating these representations keeps Boolean retrieval independent of term-frequency data, which remains necessary for ranked retrieval.
+
+All three operations use two-pointer algorithms and assume sorted input vectors containing unique document IDs.
+
+Their time complexity is O(n + m).
+
+### Query Engine Orchestration
+
+The `execute_boolean_query()` function provides a single entry point for executing raw Boolean query strings.
+
+It connects the query tokenizer, parser, and Boolean executor:
+
+1. Tokenize the query.
+2. Parse the tokens into an AST.
+3. Evaluate the AST against the inverted index.
+4. Return the matching document IDs.
+
+Keeping these responsibilities in separate components improves modularity and makes individual stages easier to test.
+
+### AST Validation
+
+The Boolean executor validates AST node structure before evaluating it.
+
+Malformed nodes, such as an AND node without both children or a NOT node without its required child, cause `std::logic_error` to be thrown.
+
+This prevents invalid manually constructed ASTs from causing undefined behavior through null-pointer dereferencing.
