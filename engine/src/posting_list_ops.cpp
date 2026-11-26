@@ -1,101 +1,72 @@
 #include "../include/search_engine/posting_list_ops.hpp"
 
 std::vector<int> intersect_posting_lists(
-    const PostingList &first,
-    const PostingList &second
+    const std::vector<int> &first,
+    const std::vector<int> &second
 ) {
     std::vector<int> result;
-
     auto a = first.begin();
     auto b = second.begin();
 
     while (a != first.end() && b != second.end()) {
-
-        if (a->document_id == b->document_id) {
-            result.push_back(a->document_id);
+        if (*a == *b) {
+            result.push_back(*a);
             ++a;
             ++b;
-        }
-        else if (a->document_id < b->document_id) {
+        } else if (*a < *b) {
             ++a;
-        }
-        else {
+        } else {
             ++b;
         }
     }
-
     return result;
 }
-
 
 std::vector<int> union_posting_lists(
-    const PostingList &first,
-    const PostingList &second
+    const std::vector<int> &first,
+    const std::vector<int> &second
 ) {
     std::vector<int> result;
-
     auto a = first.begin();
     auto b = second.begin();
 
     while (a != first.end() && b != second.end()) {
-
-        if (a->document_id == b->document_id) {
-            result.push_back(a->document_id);
+        if (*a == *b) {
+            result.push_back(*a);
             ++a;
             ++b;
-        }
-        else if (a->document_id < b->document_id) {
-            result.push_back(a->document_id);
-            ++a;
-        }
-        else {
-            result.push_back(b->document_id);
-            ++b;
+        } else if (*a < *b) {
+            result.push_back(*a++);
+        } else {
+            result.push_back(*b++);
         }
     }
 
-    while (a != first.end()) {
-        result.push_back(a->document_id);
-        ++a;
-    }
-
-    while (b != second.end()) {
-        result.push_back(b->document_id);
-        ++b;
-    }
+    result.insert(result.end(), a, first.end());
+    result.insert(result.end(), b, second.end());
 
     return result;
 }
 
-
 std::vector<int> difference_posting_lists(
-    const PostingList &first,
-    const PostingList &second
+    const std::vector<int> &first,
+    const std::vector<int> &second
 ) {
     std::vector<int> result;
-
     auto a = first.begin();
     auto b = second.begin();
 
     while (a != first.end() && b != second.end()) {
-
-        if (a->document_id == b->document_id) {
+        if (*a == *b) {
             ++a;
             ++b;
-        }
-        else if (a->document_id < b->document_id) {
-            result.push_back(a->document_id);
-            ++a;
-        }
-        else {
+        } else if (*a < *b) {
+            result.push_back(*a++);
+        } else {
             ++b;
         }
     }
 
-    while (a != first.end()) {
-        result.push_back(a->document_id);
-        ++a;
-    }
-
+    result.insert(result.end(), a, first.end());
     return result;
 }

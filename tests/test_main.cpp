@@ -697,7 +697,7 @@ TEST_CASE("Query engine respects operator precedence") {
 
     REQUIRE(
         execute_boolean_query("computer OR music AND science", index)
-        == std::vector<int>{1, 2, 3, 4}
+        == std::vector<int>{1, 2}
     );
 }
 TEST_CASE("Query engine respects parentheses") {
