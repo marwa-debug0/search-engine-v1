@@ -19,6 +19,8 @@ public:
 
     std::vector<int> get_all_document_ids() const;
     std::vector<int> get_document_ids_for_term(const std::string &term);
+    const PostingList &get_postings_for_processed_term(const std::string &processed_term) const;
+
 
 private:
     TextProcessor text_processor_;

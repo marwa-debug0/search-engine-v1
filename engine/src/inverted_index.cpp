@@ -79,3 +79,17 @@ std::vector<int> InvertedIndex::get_document_ids_for_term(
 
     return document_ids;
 }
+
+const PostingList &InvertedIndex::get_postings_for_processed_term(
+    const std::string &term
+) const {
+    static const PostingList empty_postings;
+
+    auto it = index_.find(term);
+
+    if (it == index_.end()) {
+        return empty_postings;
+    }
+
+    return it->second;
+}

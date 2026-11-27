@@ -15,6 +15,9 @@
 #include "search_engine/query_tokenizer.hpp"
 #include "search_engine/boolean_query_executor.hpp"
 #include "search_engine/query_engine.hpp"
+#include "search_engine/tfidf_scorer.hpp"
+
+
 
 
 
@@ -712,4 +715,83 @@ TEST_CASE("Query engine respects parentheses") {
         execute_boolean_query("(computer OR music) AND science", index)
         == std::vector<int>{1}
     );
+}
+
+// Return postings
+TEST_CASE("InvertedIndex returns postings for a processed term") {
+    InvertedIndex index;
+
+    index.add_document({1, "First", "computer computer science"});
+    index.add_document({2, "Second", "computer music"});
+    index.add_document({3, "Third", "music theory"});
+
+    TextProcessor processor;
+    auto processed_terms = processor.process("computer");
+
+    REQUIRE(processed_terms.size() == 1);
+
+    const PostingList &postings =
+        index.get_postings_for_processed_term(processed_terms.front());
+
+    REQUIRE(postings.size() == 2);
+    REQUIRE(postings[0].document_id == 1);
+    REQUIRE(postings[0].term_frequency == 2);
+    REQUIRE(postings[1].document_id == 2);
+    REQUIRE(postings[1].term_frequency == 1);
+}
+
+TEST_CASE("InvertedIndex returns empty postings for unknown term") {
+    InvertedIndex index;
+
+    REQUIRE(
+        index.get_postings_for_processed_term("unknown").empty()
+    );
+}
+
+
+// TF-IDF scoring
+TEST_CASE("TF-IDF ranks the most relevant document first") {
+    InvertedIndex index;
+
+    index.add_document({1, "First", "computer computer science"});
+    index.add_document({2, "Second", "computer"});
+    index.add_document({3, "Third", "music theory"});
+
+    TextProcessor processor;
+    auto query = processor.process("computer");
+
+    TfidfScorer scorer(index);
+    auto results = scorer.search(query, 10);
+
+    REQUIRE(results.size() == 2);
+    REQUIRE(results[0].document_id == 2);
+    REQUIRE(results[1].document_id == 1);
+    REQUIRE(results[0].score > results[1].score);
+}
+
+TEST_CASE("TF-IDF returns empty results for unknown terms") {
+    InvertedIndex index;
+    index.add_document({1, "First", "computer science"});
+
+    TextProcessor processor;
+    auto query = processor.process("astronaut");
+
+    TfidfScorer scorer(index);
+    REQUIRE(scorer.search(query, 10).empty());
+}
+
+TEST_CASE("TF-IDF respects top-k limit") {
+    InvertedIndex index;
+
+    index.add_document({1, "First", "computer"});
+    index.add_document({2, "Second", "computer"});
+    index.add_document({3, "Third", "computer"});
+
+    TextProcessor processor;
+    auto query = processor.process("computer");
+
+    TfidfScorer scorer(index);
+    auto results = scorer.search(query, 2);
+
+    REQUIRE(results.size() == 2);
 }

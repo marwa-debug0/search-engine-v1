@@ -210,3 +210,13 @@ The Boolean executor validates AST node structure before evaluating it.
 Malformed nodes, such as an AND node without both children or a NOT node without its required child, cause `std::logic_error` to be thrown.
 
 This prevents invalid manually constructed ASTs from causing undefined behavior through null-pointer dereferencing.
+
+## Ranked Retrieval (TF-IDF)
+
+- TF uses logarithmic weighting: 1 + ln(tf).
+- IDF uses smoothing: ln((N + 1) / (df + 1)) + 1.
+- Documents are ranked using cosine similarity.
+- Document vector norms include all indexed terms, not only query terms.
+- Top-k results are maintained using a min-heap.
+- Equal scores are resolved by ascending document ID.
+- TfidfScorer accepts preprocessed query terms; query preprocessing belongs to the query layer.

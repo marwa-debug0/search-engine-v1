@@ -83,3 +83,16 @@ The complete query pipeline is:
 4. Return of matching document IDs
 
 The query engine exposes `execute_boolean_query
+
+### Ranked Retrieval (TF-IDF)
+
+The engine supports ranked document retrieval using TF-IDF weighting and cosine similarity.
+
+- Term frequency uses logarithmic weighting: `1 + ln(tf)`.
+- Inverse document frequency uses smoothed weighting: `ln((N + 1) / (df + 1)) + 1`.
+- Document vectors are normalized using their full term vectors.
+- Query vectors are weighted and normalized using the same TF-IDF scheme.
+- A min-heap maintains the top-k results efficiently.
+- Results are sorted by descending score, with document ID as the ascending tie-breaker.
+
+The `TfidfScorer` accepts preprocessed query terms. Query preprocessing is handled by the query layer.

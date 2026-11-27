@@ -15,7 +15,9 @@ add_executable(search_engine_v0 engine/src/main.cpp
     engine/src/query_tokenizer.cpp
     engine/src/query_parser.cpp
     engine/src/boolean_query_executor.cpp
-    engine/src/query_engine.cpp)
+    engine/src/query_engine.cpp
+    engine/src/tfidf_scorer.cpp
+)
 
 
 find_package(Catch2 3 REQUIRED)
@@ -30,7 +32,9 @@ add_executable(search_engine_tests
     engine/src/query_tokenizer.cpp
     engine/src/query_parser.cpp
     engine/src/boolean_query_executor.cpp
-    engine/src/query_engine.cpp)
+    engine/src/query_engine.cpp
+    engine/src/tfidf_scorer.cpp
+)
 
 find_path(SNOWBALL_INCLUDE_DIR
     NAME libstemmer.h
